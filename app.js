@@ -1,46 +1,66 @@
+const express = require("express");
 const fs = require("fs");
-const EventEmitter = require("events");
+let users = JSON.parse(fs.readFileSync("users.json", "utf8"));
 
-const emitter = new EventEmitter();
+const app = express();
+const PORT = 3000;
+app.use(express.json());
 
-let data1 = "";
-let data2 = "";
-
-fs.readFile("file1.txt", "utf8", (err, data) => {
-  if (err) {
-    console.error("Error reading file1:", err);
-    return;
-  }
-
-  data1 = data;
-  checkFiles();
+app.get("/users", (req, res) => {
+    res.json(users);
 });
 
-fs.readFile("file2.txt", "utf8", (err, data) => {
-  if (err) {
-    console.error("Error reading file2:", err);
-    return;
-  }
+app.post("/users", (req, res) => {
+    const newUser = req.body;
 
-  data2 = data;
-  checkFiles();
+    users.push(newUser);
+
+    fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
+
+    res.json({
+        message: "User added successfully",
+        data: newUser
+    });
 });
 
-function checkFiles() {
-  if (data1 !== "" && data2 !== "") {
-    emitter.emit("filesReady");
-  }
-}
+app.delete("/users/:id", (req, res) => {
+    const id = Number(req.params.id);
 
-emitter.on("filesReady", () => {
-  const mergedData = data1 + "\n" + data2;
+    const userExists = users.find(user => user.id === id);
 
-  fs.writeFile("merged.txt", mergedData, (err) => {
-    if (err) {
-      console.error("Error writing merged file:", err);
-      return;
+    if (!userExists) {
+        return res.status(404).json({ message: "User not found" });
     }
 
-    console.log("Files merged successfully!");
-  });
+    users = users.filter(user => user.id !== id);
+
+    fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
+
+    res.json({
+        message: "User deleted successfully"
+    });
+});
+
+app.put("/users/:id", (req, res) => {
+    const id = Number(req.params.id);
+
+    const user = users.find(user => user.id === id);
+
+    if (!user) {
+        return res.status(404).json({ message: "User not found" });
+    }
+
+    user.name = req.body.name;
+    user.age = req.body.age;
+
+    fs.writeFileSync("users.json", JSON.stringify(users, null, 2));
+
+    res.json({
+        message: "User updated successfully",
+        data: user
+    });
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
